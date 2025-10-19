@@ -27,11 +27,18 @@ SMTP_SERVER = 'smtp.gmail.com' # Use 'smtp.office365.com' for Outlook/Hotmail
 SMTP_PORT = 587 # Port 587 is standard for STARTTLS encryption
 SENDER_EMAIL = os.getenv('SENDER_EMAIL')
 SENDER_PASSWORD = os.getenv('SENDER_PASSWORD')
-TENANT_EMAIL = os.getenv('TENANT_EMAIL')
-TENANT_NAME = os.getenv('TENANT_NAME')
+
+# Parse comma-separated tenant emails (all receive same email)
+TENANT_EMAILS = [email.strip() for email in os.getenv('TENANT_EMAIL', '').split(',') if email.strip()]
+TENANT_NAME = os.getenv('TENANT_NAME')  # Single greeting name or "Tenants"
+
 LANDLORD_NAME = os.getenv('LANDLORD_NAME')
 RENT_AMOUNT = f"${os.getenv('RENT_AMOUNT')}"
 TRACKING_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sent_emails.csv')
+
+if not TENANT_EMAILS:
+    print("Error: No tenant emails configured in .env file")
+    sys.exit(1)
 
 def check_already_sent(year: int, month: int) -> bool:
     """Check if an email has already been sent for the given year and month."""
@@ -65,7 +72,7 @@ def record_sent_email(year: int, month: int, bill_details: List[Dict[str, str]],
     try:
         with open(TRACKING_FILE, 'a', newline='') as csvfile:
             fieldnames = ['timestamp', 'year', 'month', 'gas_amount', 'trash_amount', 'rent_amount', 
-                         'total_amount', 'gas_pdf', 'trash_pdf', 'tenant_email']
+                         'total_amount', 'gas_pdf', 'trash_pdf', 'tenant_emails']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             
             # Write header if file is new
@@ -82,7 +89,7 @@ def record_sent_email(year: int, month: int, bill_details: List[Dict[str, str]],
                 'total_amount': total_amount,
                 'gas_pdf': os.path.basename(gas_file) if gas_file else '',
                 'trash_pdf': os.path.basename(trash_file) if trash_file else '',
-                'tenant_email': TENANT_EMAIL
+                'tenant_emails': ', '.join(TENANT_EMAILS)
             })
         print(f"\n✓ Recorded email send to tracking file: {TRACKING_FILE}")
     except Exception as e:
@@ -226,21 +233,27 @@ Best,
     
     return {"plain": plain_text.strip(), "html": html.strip()}
 
-def send_bill_email(recipient: str, subject: str, body: Dict[str, str], attachments: List[str] = None):
+def send_bill_email(recipients: List[str], subject: str, body: Dict[str, str], attachments: List[str] = None):
     """Sends the email using the configured SMTP server with optional PDF attachments."""
     
-    msg = MIMEMultipart('alternative')
+    # Create the main container with 'mixed' for attachments
+    msg = MIMEMultipart('mixed')
     msg['From'] = f"{LANDLORD_NAME} <{SENDER_EMAIL}>"
-    msg['To'] = recipient
+    msg['To'] = ', '.join(recipients)  # Multiple recipients in To field
     msg['Subject'] = subject
 
-    # Attach parts into message container.
-    # The MIMEText object with 'plain' encoding is first, then 'html'.
-    # Email clients will display the last part they can read.
-    msg.attach(MIMEText(body["plain"], 'plain'))
-    msg.attach(MIMEText(body["html"], 'html'))
+    # Create the alternative part for text/HTML content
+    msg_alternative = MIMEMultipart('alternative')
     
-    # Attach PDF files if provided
+    # Attach plain text and HTML parts to the alternative container
+    # Email clients will display the last part they can read
+    msg_alternative.attach(MIMEText(body["plain"], 'plain', 'utf-8'))
+    msg_alternative.attach(MIMEText(body["html"], 'html', 'utf-8'))
+    
+    # Attach the alternative part to the main message
+    msg.attach(msg_alternative)
+    
+    # Attach PDF files to the main 'mixed' container
     if attachments:
         for filepath in attachments:
             if os.path.exists(filepath):
@@ -253,7 +266,7 @@ def send_bill_email(recipient: str, subject: str, body: Dict[str, str], attachme
                     encoders.encode_base64(part)
                     part.add_header(
                         'Content-Disposition',
-                        f'attachment; filename= {filename}',
+                        f'attachment; filename="{filename}"',
                     )
                     msg.attach(part)
                     print(f"Attached: {filename}")
@@ -262,7 +275,9 @@ def send_bill_email(recipient: str, subject: str, body: Dict[str, str], attachme
             else:
                 print(f"Warning: File not found: {filepath}")
 
-    print(f"Attempting to send email to {recipient}...")
+    print(f"Attempting to send email to {len(recipients)} recipient(s)...")
+    for recipient in recipients:
+        print(f"  - {recipient}")
     
     try:
         # Connect to the server
@@ -274,8 +289,8 @@ def send_bill_email(recipient: str, subject: str, body: Dict[str, str], attachme
         # Login to the server
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         
-        # Send the message
-        server.sendmail(SENDER_EMAIL, recipient, msg.as_string())
+        # Send the message to all recipients
+        server.sendmail(SENDER_EMAIL, recipients, msg.as_string())
         
         server.quit()
         print("Successfully sent rent and utility bill email!")
@@ -307,8 +322,8 @@ if __name__ == '__main__':
     # 4. Generate the email content
     email_content = create_email_body(TENANT_NAME, LANDLORD_NAME, bill_details)
     
-    # 5. Send the email with attachments
-    send_bill_email(TENANT_EMAIL, subject_line, email_content, attachments)
+    # 5. Send the email to all tenants (single email with multiple recipients)
+    send_bill_email(TENANT_EMAILS, subject_line, email_content, attachments)
     
     # 6. Record the sent email
     record_sent_email(target_year, target_month, bill_details, attachments)
