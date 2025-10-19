@@ -123,7 +123,7 @@ def fetch_utility_bills() -> tuple[List[Dict[str, str]], List[str]]:
     bill_details = [
         {"Item": "Gas", "Amount": gas_amount, "Notes": gas_period},
         {"Item": "Trash + Water", "Amount": trash_amount, "Notes": trash_period},
-        {"Item": "Rent", "Amount": RENT_AMOUNT, "Notes": "For the current month"},
+        {"Item": "Rent", "Amount": RENT_AMOUNT, "Notes": "For the upcoming month"},
     ]
     
     # Calculate total (convert string amounts to float for calculation)
@@ -170,7 +170,7 @@ def create_email_body(tenant_name: str, landlord_name: str, bill_details: List[D
     plain_text = f"""
 Hi {tenant_name},
 
-Hope all is well. I've attached the utility bills for the previous month and rent for the current month.
+Hope all is well. I've attached the utility bills for the previous month and rent for the upcoming month.
 
 --- Bill Summary ---
 {plain_table}---

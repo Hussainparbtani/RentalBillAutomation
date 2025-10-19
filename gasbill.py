@@ -195,7 +195,7 @@ def scrape_bill_details(driver):
             
             # Rename the file using a date fallback
             period_name = time.strftime("%Y-%m-%d_%H%M%S")
-            new_filename = f"Gas_Bill_Downloaded_{period_name}.pdf"
+            new_filename = f"Gas_Bill_{period_name}.pdf"
             old_path = os.path.join(DOWNLOAD_DIR, downloaded_filename)
             new_path = os.path.join(DOWNLOAD_DIR, new_filename)
             
