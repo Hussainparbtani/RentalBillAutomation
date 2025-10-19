@@ -1,0 +1,57 @@
+# Environment variables
+.env
+
+# Chrome profile (if recreated)
+chrome_profile/
+
+# Downloaded bills
+downloaded_bills/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+
+# Chrome profile directory (session data)
+chrome_profile/
+
+# Downloaded bills
+downloaded_bills/
+
+# CSV data files
+*.csv
+# Exception: Keep the tracking file for sent emails
+!sent_emails.csv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+ENV/
